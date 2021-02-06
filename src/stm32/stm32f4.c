@@ -12,7 +12,11 @@
 #include "internal.h" // enable_pclock
 #include "sched.h" // sched_main
 
-#define FREQ_PERIPH (CONFIG_CLOCK_FREQ / 4)
+#if CONFIG_MACH_STM32F401VE
+    #define FREQ_PERIPH (CONFIG_CLOCK_FREQ)
+#else
+    #define FREQ_PERIPH (CONFIG_CLOCK_FREQ / 4)
+#endif
 #define FREQ_USB 48000000
 
 // Enable a peripheral clock
@@ -55,7 +59,16 @@ is_enabled_pclock(uint32_t periph_base)
 uint32_t
 get_pclock_frequency(uint32_t periph_base)
 {
+#if CONFIG_MACH_STM32F401VE
+    //STM32F401 84MHz 
+    if (periph_base < APB2PERIPH_BASE) {
+         return FREQ_PERIPH/2;                      //STN32F401 APB1 Max 42 MHz
+    } else {
+         return FREQ_PERIPH;                                   
+    }
+#else
     return FREQ_PERIPH;
+#endif
 }
 
 // Enable a GPIO peripheral clock
@@ -160,6 +173,26 @@ enable_clock_stm32f40x(void)
                     | ((pll_freq/FREQ_USB) << RCC_PLLCFGR_PLLQ_Pos));
     RCC->CR |= RCC_CR_PLLON;
 #endif
+#if CONFIG_MACH_STM32F401VE
+    //Clock setup for 84 Mhz 
+    uint32_t pll_base = 1000000, pll_freq = CONFIG_CLOCK_FREQ * 4, pllcfgr;
+    if (!CONFIG_STM32_CLOCK_REF_INTERNAL) {
+        // Configure 84Mhz PLL from external crystal (HSE)
+        uint32_t div = CONFIG_CLOCK_REF_FREQ / pll_base; // 25MHz / 1MHz = 25
+        RCC->CR |= RCC_CR_HSEON;
+        pllcfgr = RCC_PLLCFGR_PLLSRC_HSE | (div << RCC_PLLCFGR_PLLM_Pos);
+    } else {
+        // Configure 84Mhz PLL from internal 16Mhz oscillator (HSI)
+        uint32_t div = 16000000 / pll_base;
+        pllcfgr = RCC_PLLCFGR_PLLSRC_HSI | (div << RCC_PLLCFGR_PLLM_Pos);     //PLLM = / 25
+    }
+    //PLL input = 1MHz
+    RCC->PLLCFGR = (pllcfgr | ((pll_freq/pll_base) << RCC_PLLCFGR_PLLN_Pos)   //PLLN = x 336
+                    | (1U << RCC_PLLCFGR_PLLP_Pos)                            //PLLP = / 4
+                    | ((pll_freq/FREQ_USB) << RCC_PLLCFGR_PLLQ_Pos));
+    //PLLCLK = 84Mhz
+    RCC->CR |= RCC_CR_PLLON;
+#endif
 }
 
 static void
@@ -219,7 +252,7 @@ clock_setup(void)
     if (CONFIG_MACH_STM32F207)
         enable_clock_stm32f20x();
     else if (CONFIG_MACH_STM32F405 || CONFIG_MACH_STM32F407
-            || CONFIG_MACH_STM32F401)
+            || CONFIG_MACH_STM32F401 || CONFIG_MACH_STM32F401VE)
         enable_clock_stm32f40x();
     else
         enable_clock_stm32f446();
@@ -233,7 +266,14 @@ clock_setup(void)
         ;
 
     // Switch system clock to PLL
-    RCC->CFGR = RCC_CFGR_PPRE1_DIV4 | RCC_CFGR_PPRE2_DIV4 | RCC_CFGR_SW_PLL;
+    if (CONFIG_MACH_STM32F401VE)
+        //APB2 at full clock speed for stm32F401VE (84MHz)
+        RCC->CFGR = RCC_CFGR_PPRE1_DIV2                 //APB1 /2 (42Mhz)
+                  | RCC_CFGR_PPRE2_DIV1                 //APB2 /1 (84Mhz)
+                  | RCC_CFGR_SW_PLL;                    //Select Main PLL as system clock source
+    else
+        RCC->CFGR = RCC_CFGR_PPRE1_DIV4 | RCC_CFGR_PPRE2_DIV4 | RCC_CFGR_SW_PLL;
+    //Wait for System clock to stabilise
     while ((RCC->CFGR & RCC_CFGR_SWS_Msk) != RCC_CFGR_SWS_PLL)
         ;
 }

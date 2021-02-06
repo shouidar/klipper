@@ -95,7 +95,12 @@ gpio_adc_setup(uint32_t pin)
     // Enable the ADC
     if (!is_enabled_pclock(adc_base)) {
         enable_pclock(adc_base);
-        adc_calibrate(adc);
+#if CONFIG_MACH_STM32F401VE
+	//For stm32f401ve AHB2P set to 84 Mhz, ADC clock needs to be less than 36MHz, so devide by 4
+	ADC->CCR &= ~(ADC_CCR_ADCPRE);
+	ADC->CCR |= (uint32_t)(0x1UL << ADC_CCR_ADCPRE_Pos);
+#endif       
+	adc_calibrate(adc);
         uint32_t aticks = 4; // 4-12us sample time (depending on stm32 chip)
         adc->SMPR1 = (aticks | (aticks << 3) | (aticks << 6) | (aticks << 9)
                       | (aticks << 12) | (aticks << 15) | (aticks << 18)
@@ -108,7 +113,7 @@ gpio_adc_setup(uint32_t pin)
     }
 
     if (pin == ADC_TEMPERATURE_PIN) {
-#if !(CONFIG_MACH_STM32F1 || CONFIG_MACH_STM32F401)
+#if !(CONFIG_MACH_STM32F1 || CONFIG_MACH_STM32F401 || CONFIG_MACH_STM32F401VE)
         ADC123_COMMON->CCR = ADC_CCR_TSVREFE;
 #endif
     } else {

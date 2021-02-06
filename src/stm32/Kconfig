@@ -28,6 +28,9 @@ choice
     config MACH_STM32F401
         bool "STM32F401"
         select MACH_STM32F4
+    config MACH_STM32F401VE
+        bool "STM32F401VE"
+        select MACH_STM32F4
     config MACH_STM32F405
         bool "STM32F405"
         select MACH_STM32F4
@@ -56,6 +59,7 @@ config MACH_STM32F2
     bool
 config MACH_STM32F4
     bool
+
 config HAVE_STM32_USBFS
     bool
     default y if MACH_STM32F103 || MACH_STM32F0
@@ -72,7 +76,8 @@ config MCU
     default "stm32f070xb" if MACH_STM32F070
     default "stm32f103xe" if MACH_STM32F103
     default "stm32f207xx" if MACH_STM32F207
-    default "stm32f401xc" if MACH_STM32F401
+    default "stm32f401xc" if MACH_STM32F401 && !MACH_STM32F401VE
+    default "stm32f401ve" if MACH_STM32F401VE
     default "stm32f405xx" if MACH_STM32F405
     default "stm32f407xx" if MACH_STM32F407
     default "stm32f446xx" if MACH_STM32F446
@@ -83,7 +88,7 @@ config CLOCK_FREQ
     default 64000000 if MACH_STM32F103 && STM32_CLOCK_REF_INTERNAL
     default 72000000 if MACH_STM32F103
     default 120000000 if MACH_STM32F207
-    default 84000000 if MACH_STM32F401
+    default 84000000 if MACH_STM32F401 || MACH_STM32F401VE
     default 168000000 if MACH_STM32F405 || MACH_STM32F407
     default 180000000 if MACH_STM32F446
 
@@ -93,8 +98,8 @@ config FLASH_SIZE
     default 0x8000 if MACH_STM32F042
     default 0x20000 if MACH_STM32F070
     default 0x10000 if MACH_STM32F103 # Flash size of stm32f103x8 (64KiB)
-    default 0x40000 if MACH_STM32F2 || MACH_STM32F401
-    default 0x80000 if MACH_STM32F405 || MACH_STM32F407 || MACH_STM32F446
+    default 0x40000 if (MACH_STM32F2 || MACH_STM32F401) && !MACH_STM32F401VE
+    default 0x80000 if MACH_STM32F405 || MACH_STM32F407 || MACH_STM32F446 || MACH_STM32F401VE
 
 config RAM_START
     hex
@@ -107,7 +112,8 @@ config RAM_SIZE
     default 0x4000 if MACH_STM32F070
     default 0x5000 if MACH_STM32F103 # Ram size of stm32f103x8 (20KiB)
     default 0x20000 if MACH_STM32F207
-    default 0x10000 if MACH_STM32F401
+    default 0x10000 if MACH_STM32F401 && !MACH_STM32F401VE
+    default 0x18000 if MACH_STM32F401VE
     default 0x20000 if MACH_STM32F405 || MACH_STM32F407 || MACH_STM32F446
 
 
@@ -163,6 +169,8 @@ choice
         bool "12 MHz crystal"
     config STM32_CLOCK_REF_16M
         bool "16 MHz crystal"
+    config STM32_CLOCK_REF_25M
+        bool "25 MHz crystal"
     config STM32_CLOCK_REF_INTERNAL
         bool "Internal clock"
 endchoice
@@ -170,6 +178,7 @@ config CLOCK_REF_FREQ
     int
     default 16000000 if STM32_CLOCK_REF_16M
     default 12000000 if STM32_CLOCK_REF_12M
+    default 25000000 if STM32_CLOCK_REF_25M
     default 1 if STM32_CLOCK_REF_INTERNAL
     default 8000000
 
